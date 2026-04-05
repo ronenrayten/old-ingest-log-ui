@@ -22,7 +22,7 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
 
       - name: Setup Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v2
@@ -44,9 +44,9 @@ jobs:
 
       - name: Upload to Cloud Storage
         run: |
-          gcloud storage rsync --recursive dist "gs://${{ secrets.GCS_BUCKET }}"
+          gcloud storage rsync --recursive dist "gs://${{ secrets.GCP_BUCKET_STG }}"
 
       - name: Done
         run: |
-          echo "Deployed to gs://${{ secrets.GCS_BUCKET }}/"
-          echo "https://storage.googleapis.com/${{ secrets.GCS_BUCKET }}/index.html"
+          echo "Deployed to gs://${{ secrets.GCP_BUCKET_STG }}/"
+          echo "https://storage.googleapis.com/${{ secrets.GCP_BUCKET_STG }}/index.html"
