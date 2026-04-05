@@ -38,6 +38,7 @@ jobs:
       - name: Install and build
         env:
           VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL_PROD }}
+          GCS_BUCKET_BASE: ${{ secrets.GCS_BUCKET_PROD }}
         run: |
           npm ci
           npm run build

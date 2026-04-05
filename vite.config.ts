@@ -1,11 +1,17 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+/** Base path for built assets. In CI, set GCS_BUCKET_BASE to the bucket name (no gs://). */
+function assetBase(): string {
+  const bucket = process.env.GCS_BUCKET_BASE?.trim().replace(/^\/+|\/+$/g, "");
+  if (bucket) return `/${bucket}/`;
+  // Local dev / unprefixed hosting: relative URLs next to index.html
+  return "./";
+}
+
 /** Dev proxy avoids browser CORS when the API runs on another port. */
 export default defineConfig({
-  // Relative asset URLs so CSS/JS load under https://storage.googleapis.com/<bucket>/...
-  // (default "/" would request /assets/... at the storage host root → 404).
-  base: "./",
+  base: assetBase(),
   plugins: [react()],
   server: {
     proxy: {
