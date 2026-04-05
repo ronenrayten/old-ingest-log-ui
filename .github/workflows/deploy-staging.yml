@@ -1,0 +1,52 @@
+name: Deploy ingest log UI (staging)
+
+on:
+  push:
+    branches: [beta]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: beta
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install and build
+        env:
+          VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload to Cloud Storage
+        run: |
+          gcloud storage rsync --recursive dist "gs://${{ secrets.GCS_BUCKET }}"
+
+      - name: Done
+        run: |
+          echo "Deployed to gs://${{ secrets.GCS_BUCKET }}/"
+          echo "https://storage.googleapis.com/${{ secrets.GCS_BUCKET }}/index.html"
