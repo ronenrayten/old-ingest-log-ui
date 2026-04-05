@@ -1,3 +1,5 @@
+# Staging (beta) secrets (names differ from production — see deploy-production.yml):
+#   GCP_PROJECT_ID, GCP_SA_KEY_STAGING, GCP_BUCKET_STG, VITE_BACKEND_URL
 name: Deploy ingest log UI (staging)
 
 on:

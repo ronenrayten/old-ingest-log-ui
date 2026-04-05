@@ -25,6 +25,7 @@ if [[ -z "$BUCKET" ]]; then
   exit 1
 fi
 
+export GCS_BUCKET_BASE="${GCS_BUCKET_BASE:-$BUCKET}"
 npm run build
 
 echo "Syncing dist/ → gs://${BUCKET}/ ..."
