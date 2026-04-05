@@ -38,16 +38,16 @@ jobs:
       - name: Install and build
         env:
           VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL_PROD }}
-          GCS_BUCKET_BASE: ${{ secrets.GCS_BUCKET_PROD }}
+          GCS_BUCKET_BASE: ${{ secrets.GCP_BUCKET_PROD }}
         run: |
           npm ci
           npm run build
 
       - name: Upload to Cloud Storage
         run: |
-          gcloud storage rsync --recursive dist "gs://${{ secrets.GCS_BUCKET_PROD }}"
+          gcloud storage rsync --recursive dist "gs://${{ secrets.GCP_BUCKET_PROD }}"
 
       - name: Done
         run: |
-          echo "Deployed to gs://${{ secrets.GCS_BUCKET_PROD }}/"
-          echo "https://storage.googleapis.com/${{ secrets.GCS_BUCKET_PROD }}/index.html"
+          echo "Deployed to gs://${{ secrets.GCP_BUCKET_PROD }}/"
+          echo "https://storage.googleapis.com/${{ secrets.GCP_BUCKET_PROD }}/index.html"
