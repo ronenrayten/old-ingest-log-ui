@@ -93,7 +93,16 @@ export default function App() {
   async function updateStatus(row: OldIngestLogRow, next: RerunStatus) {
     try {
       const updated = await patchRerunStatus(row.id, next);
-      setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      setRows((prev) =>
+        prev.map((r) => {
+          if (r.id !== updated.id) return r;
+          return {
+            ...r,
+            ...updated,
+            raw_row_count: updated.raw_row_count ?? r.raw_row_count,
+          };
+        }),
+      );
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Update failed");
     }
@@ -219,12 +228,12 @@ export default function App() {
           <thead>
             <tr>
               <th>ID</th>
+              <th className="col-raw">Raw rows</th>
               <th>Account</th>
               <th>Tool</th>
               <th>Logged at</th>
               <th>Received date</th>
               <th>Data timestamp date</th>
-              <th>Raw rows</th>
               <th>Rerun</th>
             </tr>
           </thead>
@@ -239,6 +248,7 @@ export default function App() {
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>{r.id}</td>
+                <td className="nowrap col-raw">{r.raw_row_count ?? "—"}</td>
                 <td>
                   <span className="nowrap" title={r.account_name}>
                     {r.account_id}
@@ -252,7 +262,6 @@ export default function App() {
                 <td className="nowrap">{formatDt(r.logged_at)}</td>
                 <td>{r.received_at_date}</td>
                 <td>{r.data_timestamp_date}</td>
-                <td className="nowrap">{r.raw_row_count ?? "—"}</td>
                 <td>
                   <span className={`pill ${r.rerun_status === "PENDING" ? "pending" : "done"}`}>
                     {r.rerun_status}

@@ -13,8 +13,29 @@ export interface OldIngestLogRow {
   received_at_date: string;
   data_timestamp_date: string;
   /** Rows in device_data_raw matching this log row (same filters as scan). */
-  raw_row_count: number;
+  raw_row_count?: number;
   rerun_status: RerunStatus;
+}
+
+/** Normalize one JSON row (API may use snake_case or camelCase). */
+export function normalizeIngestLogRow(data: unknown): OldIngestLogRow {
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid row");
+  }
+  const row = data as Record<string, unknown>;
+  const v = row.raw_row_count ?? row.rawRowCount;
+  let raw_row_count: number | undefined;
+  if (typeof v === "number" && Number.isFinite(v)) {
+    raw_row_count = v;
+  } else if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) raw_row_count = n;
+  }
+  const base = data as OldIngestLogRow;
+  return {
+    ...base,
+    raw_row_count: raw_row_count ?? base.raw_row_count,
+  };
 }
 
 function url(path: string): string {
@@ -78,7 +99,9 @@ export async function listOldIngestLogs(params: ListParams): Promise<OldIngestLo
     const text = await res.text();
     throw new Error(text || `Request failed (${res.status})`);
   }
-  return res.json() as Promise<OldIngestLogRow[]>;
+  const data: unknown = await res.json();
+  if (!Array.isArray(data)) return [];
+  return data.map((item) => normalizeIngestLogRow(item));
 }
 
 export async function patchRerunStatus(id: number, rerunStatus: RerunStatus): Promise<OldIngestLogRow> {
@@ -103,5 +126,5 @@ export async function patchRerunStatus(id: number, rerunStatus: RerunStatus): Pr
     const text = await res.text();
     throw new Error(text || `Update failed (${res.status})`);
   }
-  return res.json() as Promise<OldIngestLogRow>;
+  return normalizeIngestLogRow(await res.json());
 }

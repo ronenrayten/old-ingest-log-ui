@@ -160,6 +160,13 @@ table.data th {
   background: #f8fafc;
 }
 
+table.data th.col-raw,
+table.data td.col-raw {
+  min-width: 5.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .center {
   text-align: center;
 }
