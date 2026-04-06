@@ -233,21 +233,31 @@ export async function postProcessingRerun(
   const token = getToken();
   if (!token) throw new Error("Not logged in");
 
-  const res = await fetch(
-    processRawUrl("/processing-routes-by-account-date"),
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
+  let res: Response;
+  try {
+    res = await fetch(
+      processRawUrl("/processing-routes-by-account-date"),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          account_id: accountId,
+          spraying_date: sprayingDate,
+        }),
       },
-      body: JSON.stringify({
-        account_id: accountId,
-        spraying_date: sprayingDate,
-      }),
-    },
-  );
+    );
+  } catch {
+    throw new Error(
+      "Rerun request was blocked before reaching the server. " +
+        "This is usually a CORS/preflight issue on process-raw-device-data. " +
+        "Verify VITE_PROCESS_RAW_URL points to the correct environment and that the service allows Origin https://storage.googleapis.com " +
+        "with methods POST, OPTIONS and headers Authorization, Content-Type.",
+    );
+  }
 
   if (res.status === 401) {
     clearToken();
