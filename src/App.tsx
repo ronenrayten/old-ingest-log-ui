@@ -295,7 +295,7 @@ export default function App() {
                   <button
                     type="button"
                     className="btn-rerun-day"
-                    disabled={rerunBusyId !== null}
+                    disabled={rerunBusyId !== null || r.rerun_status === "EXECUTED"}
                     onClick={() => void onRerunActivityDay(r)}
                   >
                     {rerunBusyId === r.id ? "Rerunning…" : "Rerun day"}

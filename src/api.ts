@@ -277,7 +277,12 @@ export async function listIngestRowsForAccountAndDataDay(
   accountId: number,
   dataDay: string,
 ): Promise<OldIngestLogRow[]> {
-  const all = await listOldIngestLogs({ accountId });
+  // Do not rely on API defaults (often "today"), otherwise rows from older days are missed.
+  const all = await listOldIngestLogs({
+    accountId,
+    loggedFrom: "2000-01-01",
+    loggedTo: "2100-01-01",
+  });
   return all.filter((r) => r.data_timestamp_date === dataDay);
 }
 
@@ -304,7 +309,15 @@ export async function runRerunActivityDayForRow(
     accountId,
     sprayingDate,
   );
-  for (const r of related) {
-    await patchRerunStatus(r.id, "EXECUTED");
+  // Always include the selected row itself, then any additional related rows.
+  const ids = new Set<number>([row.id, ...related.map((r) => r.id)]);
+  const results = await Promise.allSettled(
+    [...ids].map((id) => patchRerunStatus(id, "EXECUTED")),
+  );
+  const failed = results.filter((r) => r.status === "rejected").length;
+  if (failed > 0) {
+    throw new Error(
+      `Rerun completed, but failed to set EXECUTED on ${failed} row(s).`,
+    );
   }
 }
