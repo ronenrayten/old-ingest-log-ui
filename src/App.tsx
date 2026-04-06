@@ -224,13 +224,14 @@ export default function App() {
               <th>Logged at</th>
               <th>Received date</th>
               <th>Data timestamp date</th>
+              <th>Raw rows</th>
               <th>Rerun</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading && (
               <tr>
-                <td colSpan={7} className="muted center">
+                <td colSpan={8} className="muted center">
                   No rows for this filter.
                 </td>
               </tr>
@@ -251,6 +252,7 @@ export default function App() {
                 <td className="nowrap">{formatDt(r.logged_at)}</td>
                 <td>{r.received_at_date}</td>
                 <td>{r.data_timestamp_date}</td>
+                <td className="nowrap">{r.rawRowCount ?? "—"}</td>
                 <td>
                   <span className={`pill ${r.rerun_status === "PENDING" ? "pending" : "done"}`}>
                     {r.rerun_status}
