@@ -50,6 +50,11 @@ jobs:
         run: |
           gcloud storage rsync --recursive dist "gs://${{ secrets.GCP_BUCKET_PROD }}"
 
+      - name: Set no-cache on index.html
+        run: |
+          gcloud storage objects update "gs://${{ secrets.GCP_BUCKET_PROD }}/index.html" \
+            --cache-control="no-cache, max-age=0, must-revalidate"
+
       - name: Done
         run: |
           echo "Deployed to gs://${{ secrets.GCP_BUCKET_PROD }}/"

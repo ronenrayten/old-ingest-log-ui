@@ -50,6 +50,12 @@ jobs:
         run: |
           gcloud storage rsync --recursive dist "gs://${{ secrets.GCP_BUCKET_STG }}"
 
+      # Avoid stale index.html in browsers/CDN: HTML must revalidate; hashed assets under /assets/ stay fingerprinted.
+      - name: Set no-cache on index.html
+        run: |
+          gcloud storage objects update "gs://${{ secrets.GCP_BUCKET_STG }}/index.html" \
+            --cache-control="no-cache, max-age=0, must-revalidate"
+
       - name: Done
         run: |
           echo "Deployed to gs://${{ secrets.GCP_BUCKET_STG }}/"
