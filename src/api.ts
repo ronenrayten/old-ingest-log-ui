@@ -197,12 +197,17 @@ export async function getActivitiesForAccountDate(
   });
 }
 
-export async function deleteActivity(activityId: string): Promise<void> {
+export async function deleteActivityExecution(
+  activityId: string,
+  accountId: number,
+): Promise<void> {
   const token = getToken();
   if (!token) throw new Error("Not logged in");
 
   const res = await fetch(
-    url(`/activities/${encodeURIComponent(activityId)}`),
+    url(
+      `/activity/${encodeURIComponent(activityId)}/account/${encodeURIComponent(String(accountId))}/execution`,
+    ),
     {
       method: "DELETE",
       headers: {
@@ -218,7 +223,7 @@ export async function deleteActivity(activityId: string): Promise<void> {
   }
   if (!res.ok && res.status !== 204) {
     const text = await res.text();
-    throw new Error(text || `Delete activity failed (${res.status})`);
+    throw new Error(text || `Delete activity execution failed (${res.status})`);
   }
 }
 
@@ -300,7 +305,7 @@ export async function runRerunActivityDayForRow(
 
   const activities = await getActivitiesForAccountDate(accountId, sprayingDate);
   for (const a of activities) {
-    await deleteActivity(a.id);
+    await deleteActivityExecution(a.id, accountId);
   }
 
   await postProcessingRerun(accountId, sprayingDate);
@@ -311,13 +316,30 @@ export async function runRerunActivityDayForRow(
   );
   // Always include the selected row itself, then any additional related rows.
   const ids = new Set<number>([row.id, ...related.map((r) => r.id)]);
-  const results = await Promise.allSettled(
-    [...ids].map((id) => patchRerunStatus(id, "EXECUTED")),
-  );
+  const patchAll = async (): Promise<PromiseSettledResult<OldIngestLogRow>[]> =>
+    Promise.allSettled([...ids].map((id) => patchRerunStatus(id, "EXECUTED")));
+
+  let results = await patchAll();
   const failed = results.filter((r) => r.status === "rejected").length;
   if (failed > 0) {
+    // One retry for transient failures.
+    results = await patchAll();
+    const failedRetry = results.filter((r) => r.status === "rejected").length;
+    if (failedRetry > 0) {
+      throw new Error(
+        `Rerun completed, but failed to set EXECUTED on ${failedRetry} row(s).`,
+      );
+    }
+  }
+
+  // Verify persisted state from API to catch cases where patch was accepted but not saved.
+  const verify = await listIngestRowsForAccountAndDataDay(accountId, sprayingDate);
+  const stillPending = verify.filter(
+    (r) => ids.has(r.id) && r.rerun_status !== "EXECUTED",
+  );
+  if (stillPending.length > 0) {
     throw new Error(
-      `Rerun completed, but failed to set EXECUTED on ${failed} row(s).`,
+      `Rerun completed, but ${stillPending.length} row(s) are still not EXECUTED after refresh.`,
     );
   }
 }
