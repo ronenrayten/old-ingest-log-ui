@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  formatRawRowCount,
   listOldIngestLogs,
   login,
   patchRerunStatus,
@@ -8,6 +9,7 @@ import {
   type OldIngestLogRow,
   type RerunStatus,
 } from "./api";
+import pkg from "../package.json";
 import { clearToken, isLoggedIn } from "./auth";
 import "./index.css";
 
@@ -269,7 +271,7 @@ export default function App() {
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>{r.id}</td>
-                <td className="nowrap col-raw">{r.raw_row_count ?? "—"}</td>
+                <td className="nowrap col-raw">{formatRawRowCount(r)}</td>
                 <td>
                   <span className="nowrap" title={r.account_name}>
                     {r.account_id}
@@ -290,7 +292,7 @@ export default function App() {
                   <div className="row-actions">
                     <button
                       type="button"
-                      className="link danger"
+                      className="btn-rerun-day"
                       disabled={rerunBusyId !== null}
                       onClick={() => void onRerunActivityDay(r)}
                     >
@@ -312,6 +314,13 @@ export default function App() {
           </tbody>
         </table>
       </div>
+
+      <p className="muted footer-meta">
+        UI v{pkg.version}
+        {import.meta.env.VITE_GITHUB_SHA
+          ? ` · ${import.meta.env.VITE_GITHUB_SHA.slice(0, 7)}`
+          : " · local"}
+      </p>
     </div>
   );
 }

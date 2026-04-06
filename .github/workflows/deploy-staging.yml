@@ -41,6 +41,7 @@ jobs:
         env:
           VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
           VITE_PROCESS_RAW_URL: ${{ secrets.VITE_PROCESS_RAW_URL }}
+          VITE_GITHUB_SHA: ${{ github.sha }}
           GCS_BUCKET_BASE: ${{ secrets.GCP_BUCKET_STG }}
         run: |
           npm ci

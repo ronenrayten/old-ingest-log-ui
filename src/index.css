@@ -30,6 +30,12 @@ code {
   max-width: 1200px;
 }
 
+.footer-meta {
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
 .header {
   margin-bottom: 1.5rem;
 }
@@ -217,11 +223,30 @@ button.link {
   text-decoration: underline;
 }
 
-button.link.danger {
-  color: #b45309;
+/* Full-day rerun — not a text link so it stays visible in all browsers */
+button.btn-rerun-day {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-block;
+  margin: 0;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #d97706;
+  border-radius: 6px;
+  background: #fffbeb;
+  color: #92400e;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
 }
 
-button.link.danger:disabled {
-  color: #94a3b8;
-  text-decoration: none;
+button.btn-rerun-day:hover:not(:disabled) {
+  background: #fef3c7;
+}
+
+button.btn-rerun-day:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }

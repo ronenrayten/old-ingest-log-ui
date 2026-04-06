@@ -38,6 +38,18 @@ export function normalizeIngestLogRow(data: unknown): OldIngestLogRow {
   };
 }
 
+/** Display helper: reads loose JSON keys (snake_case / camelCase). */
+export function formatRawRowCount(row: OldIngestLogRow): string {
+  const loose = row as unknown as Record<string, unknown>;
+  const v = loose.raw_row_count ?? loose.rawRowCount;
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return String(n);
+  }
+  return "—";
+}
+
 function url(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   return backendBaseUrl ? `${backendBaseUrl}${p}` : p;
