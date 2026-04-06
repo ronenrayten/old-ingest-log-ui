@@ -257,13 +257,14 @@ export default function App() {
               <th>Logged at</th>
               <th>Received date</th>
               <th>Data timestamp date</th>
-              <th>Rerun</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading && (
               <tr>
-                <td colSpan={8} className="muted center">
+                <td colSpan={9} className="muted center">
                   No rows for this filter.
                 </td>
               </tr>
@@ -289,15 +290,17 @@ export default function App() {
                   <span className={`pill ${r.rerun_status === "PENDING" ? "pending" : "done"}`}>
                     {r.rerun_status}
                   </span>
+                </td>
+                <td className="cell-actions">
+                  <button
+                    type="button"
+                    className="btn-rerun-day"
+                    disabled={rerunBusyId !== null}
+                    onClick={() => void onRerunActivityDay(r)}
+                  >
+                    {rerunBusyId === r.id ? "Rerunning…" : "Rerun day"}
+                  </button>
                   <div className="row-actions">
-                    <button
-                      type="button"
-                      className="btn-rerun-day"
-                      disabled={rerunBusyId !== null}
-                      onClick={() => void onRerunActivityDay(r)}
-                    >
-                      {rerunBusyId === r.id ? "Rerunning…" : "Rerun day"}
-                    </button>
                     {r.rerun_status === "PENDING" ? (
                       <button type="button" className="link" onClick={() => void updateStatus(r, "EXECUTED")}>
                         Mark executed
