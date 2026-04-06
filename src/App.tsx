@@ -252,7 +252,7 @@ export default function App() {
                 <td className="nowrap">{formatDt(r.logged_at)}</td>
                 <td>{r.received_at_date}</td>
                 <td>{r.data_timestamp_date}</td>
-                <td className="nowrap">{r.rawRowCount ?? "—"}</td>
+                <td className="nowrap">{r.raw_row_count ?? "—"}</td>
                 <td>
                   <span className={`pill ${r.rerun_status === "PENDING" ? "pending" : "done"}`}>
                     {r.rerun_status}
