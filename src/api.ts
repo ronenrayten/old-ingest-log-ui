@@ -206,7 +206,7 @@ export async function deleteActivityExecution(
 
   const res = await fetch(
     url(
-      `/activity/${encodeURIComponent(activityId)}/account/${encodeURIComponent(String(accountId))}/execution`,
+      `/activities/${encodeURIComponent(activityId)}/account/${encodeURIComponent(String(accountId))}/execution`,
     ),
     {
       method: "DELETE",
