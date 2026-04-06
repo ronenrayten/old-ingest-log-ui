@@ -202,6 +202,10 @@ table.data td.col-raw {
 
 .row-actions {
   margin-top: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
 }
 
 button.link {
@@ -211,4 +215,13 @@ button.link {
   font-weight: 500;
   font-size: 0.8rem;
   text-decoration: underline;
+}
+
+button.link.danger {
+  color: #b45309;
+}
+
+button.link.danger:disabled {
+  color: #94a3b8;
+  text-decoration: none;
 }

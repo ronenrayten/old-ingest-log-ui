@@ -3,6 +3,7 @@ import {
   listOldIngestLogs,
   login,
   patchRerunStatus,
+  runRerunActivityDayForRow,
   type ListParams,
   type OldIngestLogRow,
   type RerunStatus,
@@ -29,6 +30,7 @@ export default function App() {
   const [accountId, setAccountId] = useState("");
   const [toolId, setToolId] = useState("");
   const [rerunStatus, setRerunStatusFilter] = useState<"" | RerunStatus>("");
+  const [rerunBusyId, setRerunBusyId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,6 +90,25 @@ export default function App() {
     clearToken();
     setAuthed(false);
     setRows([]);
+  }
+
+  async function onRerunActivityDay(row: OldIngestLogRow) {
+    const day = row.data_timestamp_date;
+    const ok = window.confirm(
+      `Rerun processing for account ${row.account_id} on data date ${day}?\n\n` +
+        "This will: delete all activities for that account and day, run full-day processing on the raw pipeline, then mark all ingest log rows with this data date as EXECUTED.",
+    );
+    if (!ok) return;
+    setRerunBusyId(row.id);
+    setLoadError(null);
+    try {
+      await runRerunActivityDayForRow(row);
+      await load();
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Rerun failed");
+    } finally {
+      setRerunBusyId(null);
+    }
   }
 
   async function updateStatus(row: OldIngestLogRow, next: RerunStatus) {
@@ -267,6 +288,14 @@ export default function App() {
                     {r.rerun_status}
                   </span>
                   <div className="row-actions">
+                    <button
+                      type="button"
+                      className="link danger"
+                      disabled={rerunBusyId !== null}
+                      onClick={() => void onRerunActivityDay(r)}
+                    >
+                      {rerunBusyId === r.id ? "Rerunning…" : "Rerun day"}
+                    </button>
                     {r.rerun_status === "PENDING" ? (
                       <button type="button" className="link" onClick={() => void updateStatus(r, "EXECUTED")}>
                         Mark executed

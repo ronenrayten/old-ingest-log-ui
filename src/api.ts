@@ -1,4 +1,4 @@
-import { backendBaseUrl } from "./config";
+import { backendBaseUrl, processRawBaseUrl } from "./config";
 import { clearToken, getToken, setToken } from "./auth";
 
 export type RerunStatus = "PENDING" | "EXECUTED";
@@ -41,6 +41,19 @@ export function normalizeIngestLogRow(data: unknown): OldIngestLogRow {
 function url(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   return backendBaseUrl ? `${backendBaseUrl}${p}` : p;
+}
+
+/** process-raw-device-data service; dev uses `/process-raw` proxy when env is unset. */
+function processRawUrl(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const base =
+    processRawBaseUrl || (import.meta.env.DEV ? "/process-raw" : "");
+  if (!base) {
+    throw new Error(
+      "VITE_PROCESS_RAW_URL is not set (required for production builds).",
+    );
+  }
+  return `${base}${p}`;
 }
 
 export async function login(username: string, password: string): Promise<void> {
@@ -127,4 +140,149 @@ export async function patchRerunStatus(id: number, rerunStatus: RerunStatus): Pr
     throw new Error(text || `Update failed (${res.status})`);
   }
   return normalizeIngestLogRow(await res.json());
+}
+
+/** Activities API (Spring). */
+export interface ActivityListItem {
+  /** Stringified so large int64 ids are not rounded by JS. */
+  id: string;
+}
+
+export async function getActivitiesForAccountDate(
+  accountId: number,
+  date: string,
+): Promise<ActivityListItem[]> {
+  const token = getToken();
+  if (!token) throw new Error("Not logged in");
+
+  const res = await fetch(
+    url(`/activities/account/${accountId}/date/${encodeURIComponent(date)}`),
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    },
+  );
+
+  if (res.status === 401) {
+    clearToken();
+    throw new Error("Session expired. Please sign in again.");
+  }
+  if (res.status === 404) {
+    return [];
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Activities request failed (${res.status})`);
+  }
+  const data: unknown = await res.json();
+  if (!Array.isArray(data)) return [];
+  return data.map((item) => {
+    const o = item as Record<string, unknown>;
+    if (o.id == null) throw new Error("Activity missing id");
+    return { id: String(o.id) };
+  });
+}
+
+export async function deleteActivity(activityId: string): Promise<void> {
+  const token = getToken();
+  if (!token) throw new Error("Not logged in");
+
+  const res = await fetch(
+    url(`/activities/${encodeURIComponent(activityId)}`),
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    },
+  );
+
+  if (res.status === 401) {
+    clearToken();
+    throw new Error("Session expired. Please sign in again.");
+  }
+  if (!res.ok && res.status !== 204) {
+    const text = await res.text();
+    throw new Error(text || `Delete activity failed (${res.status})`);
+  }
+}
+
+/**
+ * Triggers full-day processing for one account (process-raw-device-data Cloud Run).
+ * Body matches the Python service: `{ account_id, spraying_date }`.
+ */
+export async function postProcessingRerun(
+  accountId: number,
+  sprayingDate: string,
+): Promise<void> {
+  const token = getToken();
+  if (!token) throw new Error("Not logged in");
+
+  const res = await fetch(
+    processRawUrl("/processing-routes-by-account-date"),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        account_id: accountId,
+        spraying_date: sprayingDate,
+      }),
+    },
+  );
+
+  if (res.status === 401) {
+    clearToken();
+    throw new Error("Session expired. Please sign in again.");
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Processing rerun failed (${res.status})`);
+  }
+}
+
+/**
+ * All ingest log rows for this account with the same data_timestamp_date (spraying day).
+ * Uses list + client filter; may be heavy for very large accounts.
+ */
+export async function listIngestRowsForAccountAndDataDay(
+  accountId: number,
+  dataDay: string,
+): Promise<OldIngestLogRow[]> {
+  const all = await listOldIngestLogs({ accountId });
+  return all.filter((r) => r.data_timestamp_date === dataDay);
+}
+
+/**
+ * Rerun flow for one selected row’s spraying day (full account + day):
+ * 1) Delete all activities for that account+date
+ * 2) POST process-raw rerun for that account+date
+ * 3) Mark all related old-ingest-log rows (same account + data_timestamp_date) as EXECUTED
+ */
+export async function runRerunActivityDayForRow(
+  row: OldIngestLogRow,
+): Promise<void> {
+  const accountId = row.account_id;
+  const sprayingDate = row.data_timestamp_date;
+
+  const activities = await getActivitiesForAccountDate(accountId, sprayingDate);
+  for (const a of activities) {
+    await deleteActivity(a.id);
+  }
+
+  await postProcessingRerun(accountId, sprayingDate);
+
+  const related = await listIngestRowsForAccountAndDataDay(
+    accountId,
+    sprayingDate,
+  );
+  for (const r of related) {
+    await patchRerunStatus(r.id, "EXECUTED");
+  }
 }
