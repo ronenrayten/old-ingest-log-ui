@@ -12,7 +12,7 @@ export interface OldIngestLogRow {
   logged_at: string;
   received_at_date: string;
   data_timestamp_date: string;
-  /** Rows in device_data_raw matching this log row (same filters as scan). */
+  /** Matching raw rows in Postgres device_data_raw and/or BigQuery telemetry_entries. */
   raw_row_count?: number;
   rerun_status: RerunStatus;
 }
