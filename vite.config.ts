@@ -15,9 +15,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/api": { target: "https://proscout-api-beta-249863248759.us-central1.run.app", changeOrigin: true },
-      "/auth": { target: "https://proscout-api-beta-249863248759.us-central1.run.app", changeOrigin: true },
-      "/activities": { target: "https://proscout-api-beta-249863248759.us-central1.run.app", changeOrigin: true },
+      "/api": { target: "https://prod-proscout-api-1057209384551.us-central1.run.app", changeOrigin: true },
+      "/auth": { target: "https://prod-proscout-api-1057209384551.us-central1.run.app", changeOrigin: true },
+      "/activities": { target: "https://prod-proscout-api-1057209384551.us-central1.run.app", changeOrigin: true },
       "/process-raw": {
         target: "https://process-raw-device-data-1057209384551.us-central1.run.app",
         changeOrigin: true,
