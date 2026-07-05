@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  formatRawRowCount,
-  listOldIngestLogs,
+  queryOldIngest,
   login,
-  patchRerunStatus,
-  runRerunActivityDayForRow,
-  type ListParams,
-  type OldIngestLogRow,
-  type RerunStatus,
+  rowKey,
+  type OldIngestRow,
+  type QueryParams,
 } from "./api";
 import pkg from "../package.json";
 import { clearToken, isLoggedIn } from "./auth";
 import "./index.css";
+
+function utcYesterday(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
 
 export default function App() {
   const [authed, setAuthed] = useState(isLoggedIn);
@@ -20,28 +23,29 @@ export default function App() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginBusy, setLoginBusy] = useState(false);
 
-  const [rows, setRows] = useState<OldIngestLogRow[]>([]);
+  const [rows, setRows] = useState<OldIngestRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  /** Omit both to use API default (today on the server). */
-  const [loggedFrom, setLoggedFrom] = useState("");
-  const [loggedTo, setLoggedTo] = useState("");
-  const [receivedFrom, setReceivedFrom] = useState("");
-  const [receivedTo, setReceivedTo] = useState("");
+  const [receivedFrom, setReceivedFrom] = useState(utcYesterday);
+  const [receivedTo, setReceivedTo] = useState(utcYesterday);
+  const [dataFrom, setDataFrom] = useState("");
+  const [dataTo, setDataTo] = useState("");
   const [accountId, setAccountId] = useState("");
   const [toolId, setToolId] = useState("");
-  const [rerunStatus, setRerunStatusFilter] = useState<"" | RerunStatus>("");
-  const [rerunBusyId, setRerunBusyId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
+    if (!receivedFrom && !receivedTo) {
+      setLoadError("Received date is required");
+      return;
+    }
     setLoading(true);
     setLoadError(null);
-    const params: ListParams = {};
-    if (loggedFrom) params.loggedFrom = loggedFrom;
-    if (loggedTo) params.loggedTo = loggedTo;
+    const params: QueryParams = {};
     if (receivedFrom) params.receivedFrom = receivedFrom;
     if (receivedTo) params.receivedTo = receivedTo;
+    if (dataFrom) params.dataFrom = dataFrom;
+    if (dataTo) params.dataTo = dataTo;
     if (accountId.trim()) {
       const n = Number(accountId);
       if (!Number.isNaN(n)) params.accountId = n;
@@ -50,9 +54,8 @@ export default function App() {
       const n = Number(toolId);
       if (!Number.isNaN(n)) params.toolId = n;
     }
-    if (rerunStatus) params.rerunStatus = rerunStatus;
     try {
-      const data = await listOldIngestLogs(params);
+      const data = await queryOldIngest(params);
       setRows(data);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load");
@@ -60,15 +63,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [
-    loggedFrom,
-    loggedTo,
-    receivedFrom,
-    receivedTo,
-    accountId,
-    toolId,
-    rerunStatus,
-  ]);
+  }, [receivedFrom, receivedTo, dataFrom, dataTo, accountId, toolId]);
 
   useEffect(() => {
     if (authed) void load();
@@ -92,43 +87,6 @@ export default function App() {
     clearToken();
     setAuthed(false);
     setRows([]);
-  }
-
-  async function onRerunActivityDay(row: OldIngestLogRow) {
-    const day = row.data_timestamp_date;
-    const ok = window.confirm(
-      `Rerun processing for account ${row.account_id} on data date ${day}?\n\n` +
-        "This will: delete all activities for that account and day, run full-day processing on the raw pipeline, then mark all ingest log rows with this data date as EXECUTED.",
-    );
-    if (!ok) return;
-    setRerunBusyId(row.id);
-    setLoadError(null);
-    try {
-      await runRerunActivityDayForRow(row);
-      await load();
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Rerun failed");
-    } finally {
-      setRerunBusyId(null);
-    }
-  }
-
-  async function updateStatus(row: OldIngestLogRow, next: RerunStatus) {
-    try {
-      const updated = await patchRerunStatus(row.id, next);
-      setRows((prev) =>
-        prev.map((r) => {
-          if (r.id !== updated.id) return r;
-          return {
-            ...r,
-            ...updated,
-            raw_row_count: updated.raw_row_count ?? r.raw_row_count,
-          };
-        }),
-      );
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Update failed");
-    }
   }
 
   if (!authed) {
@@ -168,14 +126,17 @@ export default function App() {
     );
   }
 
+  const totalRows = rows.reduce((sum, r) => sum + r.raw_row_count, 0);
+
   return (
     <div className="shell wide">
       <header className="header row">
         <div>
-          <h1>Device data raw — old ingest log</h1>
+          <h1>Telemetry old ingest</h1>
           <p className="muted">
-            Rows are filtered by <code>logged_at</code> date (inclusive). Empty logged range lets the
-            API default to today on the server.
+            Live query on BigQuery <code>telemetry_entries</code>. Rows ingested on the received
+            date(s) (UTC) whose sample <code>timestamp</code> is on an earlier day, with positive
+            flow meter.
           </p>
         </div>
         <button type="button" className="btn-secondary" onClick={logout}>
@@ -186,24 +147,30 @@ export default function App() {
       <section className="card filters">
         <div className="grid">
           <label>
-            Logged from
-            <input type="date" value={loggedFrom} onChange={(e) => setLoggedFrom(e.target.value)} />
-          </label>
-          <label>
-            Logged to
-            <input type="date" value={loggedTo} onChange={(e) => setLoggedTo(e.target.value)} />
-          </label>
-          <label>
-            Received from
+            Received from (UTC)
             <input
               type="date"
               value={receivedFrom}
               onChange={(e) => setReceivedFrom(e.target.value)}
+              required
             />
           </label>
           <label>
-            Received to
-            <input type="date" value={receivedTo} onChange={(e) => setReceivedTo(e.target.value)} />
+            Received to (UTC)
+            <input
+              type="date"
+              value={receivedTo}
+              onChange={(e) => setReceivedTo(e.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Data from (UTC)
+            <input type="date" value={dataFrom} onChange={(e) => setDataFrom(e.target.value)} />
+          </label>
+          <label>
+            Data to (UTC)
+            <input type="date" value={dataTo} onChange={(e) => setDataTo(e.target.value)} />
           </label>
           <label>
             Account ID
@@ -225,54 +192,45 @@ export default function App() {
               onChange={(e) => setToolId(e.target.value)}
             />
           </label>
-          <label>
-            Rerun status
-            <select
-              value={rerunStatus}
-              onChange={(e) => setRerunStatusFilter(e.target.value as "" | RerunStatus)}
-            >
-              <option value="">Any</option>
-              <option value="PENDING">PENDING</option>
-              <option value="EXECUTED">EXECUTED</option>
-            </select>
-          </label>
         </div>
         <div className="actions">
           <button type="button" onClick={() => void load()} disabled={loading}>
-            {loading ? "Loading…" : "Refresh"}
+            {loading ? "Querying…" : "Query"}
           </button>
         </div>
       </section>
 
       {loadError && <p className="error banner">{loadError}</p>}
 
+      {rows.length > 0 && (
+        <p className="muted summary">
+          {rows.length} group{rows.length === 1 ? "" : "s"} · {totalRows.toLocaleString()} telemetry
+          rows
+        </p>
+      )}
+
       <div className="table-wrap card">
         <table className="data">
           <thead>
             <tr>
-              <th>ID</th>
               <th className="col-raw">Raw rows</th>
               <th>Account</th>
               <th>Tool</th>
-              <th>Logged at</th>
               <th>Received date</th>
               <th>Data timestamp date</th>
-              <th>Status</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading && (
               <tr>
-                <td colSpan={9} className="muted center">
+                <td colSpan={5} className="muted center">
                   No rows for this filter.
                 </td>
               </tr>
             )}
             {rows.map((r) => (
-              <tr key={r.id}>
-                <td>{r.id}</td>
-                <td className="nowrap col-raw">{formatRawRowCount(r)}</td>
+              <tr key={rowKey(r)}>
+                <td className="nowrap col-raw">{r.raw_row_count.toLocaleString()}</td>
                 <td>
                   <span className="nowrap" title={r.account_name}>
                     {r.account_id}
@@ -283,35 +241,8 @@ export default function App() {
                   <span className="nowrap">{r.tool_id}</span>
                   <div className="sub">{r.tool_name || "—"}</div>
                 </td>
-                <td className="nowrap">{formatDt(r.logged_at)}</td>
                 <td>{r.received_at_date}</td>
                 <td>{r.data_timestamp_date}</td>
-                <td>
-                  <span className={`pill ${r.rerun_status === "PENDING" ? "pending" : "done"}`}>
-                    {r.rerun_status}
-                  </span>
-                </td>
-                <td className="cell-actions">
-                  <button
-                    type="button"
-                    className="btn-rerun-day"
-                    disabled={rerunBusyId !== null || r.rerun_status === "EXECUTED"}
-                    onClick={() => void onRerunActivityDay(r)}
-                  >
-                    {rerunBusyId === r.id ? "Rerunning…" : "Rerun day"}
-                  </button>
-                  <div className="row-actions">
-                    {r.rerun_status === "PENDING" ? (
-                      <button type="button" className="link" onClick={() => void updateStatus(r, "EXECUTED")}>
-                        Mark executed
-                      </button>
-                    ) : (
-                      <button type="button" className="link" onClick={() => void updateStatus(r, "PENDING")}>
-                        Mark pending
-                      </button>
-                    )}
-                  </div>
-                </td>
               </tr>
             ))}
           </tbody>
@@ -326,14 +257,4 @@ export default function App() {
       </p>
     </div>
   );
-}
-
-function formatDt(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleString();
-  } catch {
-    return iso;
-  }
 }

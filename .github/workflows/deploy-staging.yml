@@ -1,5 +1,5 @@
 # Staging (beta) secrets (names differ from production — see deploy-production.yml):
-#   GCP_PROJECT_ID, GCP_SA_KEY_STAGING, GCP_BUCKET_STG, VITE_BACKEND_URL, VITE_PROCESS_RAW_URL
+#   GCP_PROJECT_ID, GCP_SA_KEY_STAGING, GCP_BUCKET_STG, VITE_BACKEND_URL
 name: Deploy ingest log UI (staging)
 
 on:
@@ -40,7 +40,6 @@ jobs:
       - name: Install and build
         env:
           VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
-          VITE_PROCESS_RAW_URL: ${{ secrets.VITE_PROCESS_RAW_URL }}
           VITE_GITHUB_SHA: ${{ github.sha }}
           GCS_BUCKET_BASE: ${{ secrets.GCP_BUCKET_STG }}
         run: |

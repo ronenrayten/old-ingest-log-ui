@@ -17,12 +17,6 @@ export default defineConfig({
     proxy: {
       "/api": { target: "https://prod-proscout-api-1057209384551.us-central1.run.app", changeOrigin: true },
       "/auth": { target: "https://prod-proscout-api-1057209384551.us-central1.run.app", changeOrigin: true },
-      "/activities": { target: "https://prod-proscout-api-1057209384551.us-central1.run.app", changeOrigin: true },
-      "/process-raw": {
-        target: "https://process-raw-device-data-1057209384551.us-central1.run.app",
-        changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/process-raw/, ""),
-      },
     },
   },
 });
